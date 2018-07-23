@@ -23,7 +23,7 @@ import java.util.UUID;
 public class DBEngine {
     private static DBEngine instance;
     private String driver = "com.mysql.jdbc.Driver";
-    private String url = "jdbc:mysql://localhost:3306/sqltestdb";
+    private String url = "jdbc:mysql://localhost:3306/studio?useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8&useSSL=false";
     private String user = "root";
     private String password = "root";
     private Connection con;
@@ -42,25 +42,55 @@ public class DBEngine {
                 System.out.println("Succeeded connecting to the Database!");
             }
         } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
-    public void executeDelete(Entity entity, List<Rule> rules, boolean fetch) {
 
+    public boolean delete(Entity entity, List<Rule> rules, boolean fetch) {
+        String sql = buildQuerySQL(entity, rules, fetch);
+      return   executeDelete(entity, sql, fetch);
     }
 
-    public String buildQuerySQL(Entity entity, List<Rule> rules, boolean fetch) {
-        StringBuilder builder = new StringBuilder();
+    public <T> List<T> query(Entity entity, List<Rule> rules, boolean fetch) {
+        String sql = buildQuerySQL(entity, rules, fetch);
+        return executeQuery(entity, sql, fetch);
+    }
 
+    public String insertOrUpdate(Entity entity, JsonObject jsonObject, boolean inflate) {
+        StringBuilder ids = new StringBuilder();
+        if (jsonObject.isJsonArray()) {
+            for (JsonElement jsonElement : jsonObject.getAsJsonArray()) {
+                ids.append(executeInsertOrUpdate(entity, (JsonObject) jsonElement, inflate));
+                ids.append(",");
+            }
+        } else {
+            ids.append(executeInsertOrUpdate(entity, jsonObject, inflate));
+        }
+        return ids.toString();
+    }
+
+    public boolean createTableIfNotExist(Entity entity){
+        //todo
+    }
+
+    private String buildQuerySQL(Entity entity, List<Rule> rules, boolean fetch) {
+        StringBuilder builder = new StringBuilder();
         for (Rule rule : rules) {
             switch (rule.getOp()) {
                 case QUERY:
+                    if (builder.length()>0){
+                        builder.append(";");
+                    }
                     builder.append("select * from ");
-                    builder.append(entity.getName());
+                    builder.append(entity.getSimpleName());
                     break;
                 case DELETE:
+                    if (builder.length()>0){
+                        builder.append(";");
+                    }
                     builder.append("delete from ");
-                    builder.append(entity.getName());
+                    builder.append(entity.getSimpleName());
                     break;
                 case WHERE:
                     builder.append(" where ");
@@ -92,6 +122,17 @@ public class DBEngine {
         return sql;
     }
 
+    //todo 删除相关数据
+    private boolean executeDelete(Entity entity, String sql, boolean fetch) {
+        try {
+            Statement statement=  con.createStatement();
+            statement.execute(sql);
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
     private List executeQuery(Entity entity, String sql, boolean fetch) {
         System.out.println(sql);
@@ -124,13 +165,13 @@ public class DBEngine {
                 if (objectId != null && objectId.length() > 0) {
                     exist = true;
                     builder.append("update ");
-                    builder.append(entity.getName());
+                    builder.append(entity.getSimpleName());
                     builder.append(" set ");
                 } else {
                     exist = false;
                     objectId = UUID.randomUUID().toString().replaceAll("-", "");
                     builder.append("insert into ");
-                    builder.append(entity.getName());
+                    builder.append(entity.getSimpleName());
                     builder.append(" (objectId");
                     valuesBuilder.append("values(");
                     valuesBuilder.append("'");
@@ -179,6 +220,7 @@ public class DBEngine {
                 builder.append(",");
                 builder.append(fieldName);
                 boolean isString = false;
+                valuesBuilder.append(",");
                 if (value instanceof String) {
                     isString = true;
                 }
@@ -189,6 +231,7 @@ public class DBEngine {
                 if (isString) {
                     valuesBuilder.append("'");
                 }
+
             }
         }
         if (exist) {
@@ -208,10 +251,12 @@ public class DBEngine {
         return objectId;
     }
 
-    public Object getJsonPrimitiveAttr(String name, JsonObject jsonObject) {
+    private Object getJsonPrimitiveAttr(String name, JsonObject jsonObject) {
         JsonElement element = jsonObject.get(name);
         try {
-            return element.getClass().getField("value").get(element);
+            java.lang.reflect.Field field=element.getClass().getDeclaredField("value");
+            field.setAccessible(true);
+            return field.get(element);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -262,13 +307,12 @@ public class DBEngine {
                             }
                         }
                     } else if (!EntityRepository.getInstance().isJavaBuiltinType(field.getType())) {
-                        StringBuilder builder = new StringBuilder();
                         Entity fieldEntity = EntityRepository.getInstance().find(field.getType().getName());
                         Rule inRule = new Rule();
                         inRule.setOp(Op.EQUALTO);
                         inRule.setValue(resultSet.getString(field.getName()));
                         inRule.setColum("objectId");
-                        String sql = buildQuerySQL(fieldEntity, Arrays.asList(Rule.where(), inRule), builder, fetch);
+                        String sql = buildQuerySQL(fieldEntity, Arrays.asList(Rule.query(), Rule.where(), inRule), fetch);
                         List result = executeQuery(fieldEntity, sql, true);
                         inflateField(object, field.getName(), result);
                     } else {
@@ -290,7 +334,7 @@ public class DBEngine {
         }
     }
 
-    public void setField(Object o, String fieldName, Object value) {
+    private void setField(Object o, String fieldName, Object value) {
         try {
             java.lang.reflect.Field field = o.getClass().getField(fieldName);
             field.setAccessible(true);

@@ -9,9 +9,9 @@ import java.util.List;
 import java.util.Map;
 
 public class BaseObject {
-    private String objectId;
-    private Date createdAt;
-    private Date updateAt;
+    public String objectId="";
+    public Date createdAt=new Date();
+    public Date updateAt=new Date();
 
     public String getObjectId() {
         return objectId;
