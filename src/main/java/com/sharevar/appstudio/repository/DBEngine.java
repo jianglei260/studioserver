@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.UUID;
 
 public class DBEngine {
-
     private static DBEngine instance;
     private String driver = "com.mysql.jdbc.Driver";
     private String url = "jdbc:mysql://localhost:3306/sqltestdb";
@@ -36,7 +35,6 @@ public class DBEngine {
     }
 
     public DBEngine() {
-
         try {
             Class.forName(driver);
             con = DriverManager.getConnection(url, user, password);
@@ -47,25 +45,23 @@ public class DBEngine {
         }
     }
 
+    public void executeDelete(Entity entity, List<Rule> rules, boolean fetch) {
 
-    public void buildSQL(Entity entity, List<Rule> rules, boolean fetch) {
-        StringBuilder builder = new StringBuilder();
-        String sql = null;
-        switch (rules.get(0).getOp()) {
-            case QUERY:
-                sql = buildQuerySQL(entity, rules.subList(1, rules.size()), builder, fetch);
-                break;
-
-        }
-        executeQuery(entity, sql, fetch);
     }
 
+    public String buildQuerySQL(Entity entity, List<Rule> rules, boolean fetch) {
+        StringBuilder builder = new StringBuilder();
 
-    public String buildQuerySQL(Entity entity, List<Rule> rules, StringBuilder builder, boolean fetch) {
-        builder.append("select * from");
-        builder.append(entity.getName());
         for (Rule rule : rules) {
             switch (rule.getOp()) {
+                case QUERY:
+                    builder.append("select * from ");
+                    builder.append(entity.getName());
+                    break;
+                case DELETE:
+                    builder.append("delete from ");
+                    builder.append(entity.getName());
+                    break;
                 case WHERE:
                     builder.append(" where ");
                     break;
@@ -96,6 +92,7 @@ public class DBEngine {
         return sql;
     }
 
+
     private List executeQuery(Entity entity, String sql, boolean fetch) {
         System.out.println(sql);
         List<BaseObject> results = new ArrayList<>();
@@ -120,6 +117,8 @@ public class DBEngine {
         String objectId = "";
 
         for (Field field : entity.getFields()) {
+            String fieldName = field.getName();
+            Object value = null;
             if (field.getName().equals("objectId")) {
                 objectId = jsonObject.get("objectId").getAsString();
                 if (objectId != null && objectId.length() > 0) {
@@ -141,30 +140,11 @@ public class DBEngine {
                 continue;
             }
             if (EntityRepository.getInstance().isJavaBuiltinType(field.getType())) {
-                if (exist) {
-                    builder.append(field.getName());
-                    builder.append("=");
-                    builder.append(getJsonPrimitiveAttr(field.getName(), jsonObject));
-                } else {
-                    builder.append(",");
-                    builder.append(field.getName());
-                    boolean isString = false;
-                    if (jsonObject.getAsJsonPrimitive(field.getName()).isString()) {
-                        isString = true;
-                    }
-                    if (isString) {
-                        valuesBuilder.append("'");
-                    }
-                    valuesBuilder.append(getJsonPrimitiveAttr(field.getName(), jsonObject));
-                    if (isString) {
-                        valuesBuilder.append("'");
-                    }
-                }
+                value = getJsonPrimitiveAttr(field.getName(), jsonObject);
             } else if (field.isCollection()) {
                 JsonArray array = jsonObject.getAsJsonArray(field.getName());
                 Type parameterizedType = field.getType().getParameterizedType();
                 StringBuilder values = new StringBuilder();
-
                 if (EntityRepository.getInstance().isJavaBuiltinType(parameterizedType)) {
                     for (JsonElement element : array) {
                         values.append(element.getAsString());
@@ -186,40 +166,33 @@ public class DBEngine {
                         }
                     }
                 }
-                if (exist){
-                    builder.append(",");
-                    builder.append(field.getName());
-                    builder.append("=");
-                    builder.append(values);
-                }else {
-                    builder.append(",");
-                    builder.append(field.getName());
-                    valuesBuilder.append("'");
-                    valuesBuilder.append(values);
-                    valuesBuilder.append("'");
-                }
-
+                value = values.toString();
             } else {
                 JsonObject inflateJsonObject = jsonObject.get(field.getName()).getAsJsonObject();
-                String inflateObjectId = executeInsertOrUpdate(EntityRepository.getInstance().find(field.getName()), inflateJsonObject, inflate);
-                if (exist){
-                    builder.append(",");
-                    builder.append(field.getName());
-                    builder.append("=");
-                    builder.append(inflateObjectId);
-                }else {
-                    builder.append(",");
-                    builder.append(field.getName());
-                    valuesBuilder.append("'");
-                    valuesBuilder.append(inflateObjectId);
+                value = executeInsertOrUpdate(EntityRepository.getInstance().find(field.getName()), inflateJsonObject, inflate);
+            }
+            if (exist) {
+                builder.append(fieldName);
+                builder.append("=");
+                builder.append(value);
+            } else {
+                builder.append(",");
+                builder.append(fieldName);
+                boolean isString = false;
+                if (value instanceof String) {
+                    isString = true;
+                }
+                if (isString) {
                     valuesBuilder.append("'");
                 }
-
+                valuesBuilder.append(value);
+                if (isString) {
+                    valuesBuilder.append("'");
+                }
             }
-
         }
         if (exist) {
-            builder.append("where object = '"+objectId+"'");
+            builder.append("where object = '" + objectId + "'");
         }
         valuesBuilder.append(")");
         builder.append(")");
@@ -269,13 +242,12 @@ public class DBEngine {
                             inflateField(object, field.getName(), list);
                         } else {
                             if (fetch) {
-                                StringBuilder builder = new StringBuilder();
                                 Entity fieldEntity = EntityRepository.getInstance().find(parameterizedType.getName());
                                 Rule inRule = new Rule();
                                 inRule.setOp(Op.IN);
                                 inRule.setValue("(" + ids + ")");
                                 inRule.setColum("objectId");
-                                String sql = buildQuerySQL(fieldEntity, Arrays.asList(Rule.where(), inRule), builder, true);
+                                String sql = buildQuerySQL(fieldEntity, Arrays.asList(Rule.where(), inRule), true);
                                 List result = executeQuery(fieldEntity, sql, true);
                                 inflateField(object, field.getName(), result);
                             } else {
