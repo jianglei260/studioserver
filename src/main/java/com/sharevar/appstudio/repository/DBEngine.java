@@ -1,5 +1,9 @@
 package com.sharevar.appstudio.repository;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.sharevar.appstudio.common.ds.CollectionOP;
 import com.sharevar.appstudio.data.BaseObject;
 import com.sharevar.appstudio.data.Entity;
@@ -14,6 +18,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 public class DBEngine {
 
@@ -54,6 +59,7 @@ public class DBEngine {
         }
         executeQuery(entity, sql, fetch);
     }
+
 
     public String buildQuerySQL(Entity entity, List<Rule> rules, StringBuilder builder, boolean fetch) {
         builder.append("select * from");
@@ -104,6 +110,139 @@ public class DBEngine {
             e.printStackTrace();
         }
         return results;
+    }
+
+    //todo 更新逻辑，按其他条件更新，不仅仅是是ID
+    private String executeInsertOrUpdate(Entity entity, JsonObject jsonObject, boolean inflate) {
+        StringBuilder builder = new StringBuilder();
+        StringBuilder valuesBuilder = new StringBuilder();
+        boolean exist = false;
+        String objectId = "";
+
+        for (Field field : entity.getFields()) {
+            if (field.getName().equals("objectId")) {
+                objectId = jsonObject.get("objectId").getAsString();
+                if (objectId != null && objectId.length() > 0) {
+                    exist = true;
+                    builder.append("update ");
+                    builder.append(entity.getName());
+                    builder.append(" set ");
+                } else {
+                    exist = false;
+                    objectId = UUID.randomUUID().toString().replaceAll("-", "");
+                    builder.append("insert into ");
+                    builder.append(entity.getName());
+                    builder.append(" (objectId");
+                    valuesBuilder.append("values(");
+                    valuesBuilder.append("'");
+                    valuesBuilder.append(objectId);
+                    valuesBuilder.append("'");
+                }
+                continue;
+            }
+            if (EntityRepository.getInstance().isJavaBuiltinType(field.getType())) {
+                if (exist) {
+                    builder.append(field.getName());
+                    builder.append("=");
+                    builder.append(getJsonPrimitiveAttr(field.getName(), jsonObject));
+                } else {
+                    builder.append(",");
+                    builder.append(field.getName());
+                    boolean isString = false;
+                    if (jsonObject.getAsJsonPrimitive(field.getName()).isString()) {
+                        isString = true;
+                    }
+                    if (isString) {
+                        valuesBuilder.append("'");
+                    }
+                    valuesBuilder.append(getJsonPrimitiveAttr(field.getName(), jsonObject));
+                    if (isString) {
+                        valuesBuilder.append("'");
+                    }
+                }
+            } else if (field.isCollection()) {
+                JsonArray array = jsonObject.getAsJsonArray(field.getName());
+                Type parameterizedType = field.getType().getParameterizedType();
+                StringBuilder values = new StringBuilder();
+
+                if (EntityRepository.getInstance().isJavaBuiltinType(parameterizedType)) {
+                    for (JsonElement element : array) {
+                        values.append(element.getAsString());
+                        values.append(",");
+                    }
+                } else {
+                    if (inflate) {
+                        for (JsonElement element : array) {
+                            Entity fieldEntity = EntityRepository.getInstance().find(parameterizedType.getName());
+                            String inflateObjectId = executeInsertOrUpdate(fieldEntity, element.getAsJsonObject(), true);
+                            values.append(inflateObjectId);
+                            values.append(",");
+                        }
+                    } else {
+                        for (JsonElement element : array) {
+                            String id = element.getAsJsonObject().get("objectId").getAsString();
+                            values.append(id);
+                            values.append(",");
+                        }
+                    }
+                }
+                if (exist){
+                    builder.append(",");
+                    builder.append(field.getName());
+                    builder.append("=");
+                    builder.append(values);
+                }else {
+                    builder.append(",");
+                    builder.append(field.getName());
+                    valuesBuilder.append("'");
+                    valuesBuilder.append(values);
+                    valuesBuilder.append("'");
+                }
+
+            } else {
+                JsonObject inflateJsonObject = jsonObject.get(field.getName()).getAsJsonObject();
+                String inflateObjectId = executeInsertOrUpdate(EntityRepository.getInstance().find(field.getName()), inflateJsonObject, inflate);
+                if (exist){
+                    builder.append(",");
+                    builder.append(field.getName());
+                    builder.append("=");
+                    builder.append(inflateObjectId);
+                }else {
+                    builder.append(",");
+                    builder.append(field.getName());
+                    valuesBuilder.append("'");
+                    valuesBuilder.append(inflateObjectId);
+                    valuesBuilder.append("'");
+                }
+
+            }
+
+        }
+        if (exist) {
+            builder.append("where object = '"+objectId+"'");
+        }
+        valuesBuilder.append(")");
+        builder.append(")");
+        builder.append(valuesBuilder);
+        String sql = builder.toString();
+        System.out.println(sql);
+        try {
+            Statement statement = con.createStatement();
+            statement.execute(sql);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return objectId;
+    }
+
+    public Object getJsonPrimitiveAttr(String name, JsonObject jsonObject) {
+        JsonElement element = jsonObject.get(name);
+        try {
+            return element.getClass().getField("value").get(element);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     private BaseObject createObject(Entity entity, ResultSet resultSet, boolean fetch) {
