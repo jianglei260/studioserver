@@ -22,6 +22,7 @@ public class EntityRepository {
     private static Map<String, Entity> entities = new HashMap<>();
     private static Map<String, Class> builtinType = new HashMap<>();
     public static Map<String, String> dbTypeMap = new HashMap<>();
+    public static final String VARCHAR="VARCHAR(256)";
 
     static {
         /**********************java builtin type*************************/
@@ -68,7 +69,7 @@ public class EntityRepository {
         fromClass(Variable.class);
         fromClass(Rule.class);
         /*************************project db type map***********************/
-        dbTypeMap.put(String.class.getName(),"VARCHAR");
+        dbTypeMap.put(String.class.getName(),VARCHAR);
         dbTypeMap.put(Integer.class.getName(),"INTEGER");
         dbTypeMap.put(int.class.getName(),"INTEGER");
         dbTypeMap.put(long.class.getName(),"BIGINT");
@@ -80,15 +81,19 @@ public class EntityRepository {
         dbTypeMap.put(double.class.getName(),"DOUBLE");
         dbTypeMap.put(Date.class.getName(),"DATETIME");
         dbTypeMap.put(java.sql.Date.class.getName(),"DATETIME");
-        dbTypeMap.put(List.class.getName(),"VARCHAR");
+        dbTypeMap.put(List.class.getName(),VARCHAR);
     }
 
     public static String getDBType(String type){
         String dbType=dbTypeMap.get(type);
         if (dbType==null){
-            dbType="VARCHAR";
+            dbType=VARCHAR;
         }
         return dbType;
+    }
+
+    public void syncEntity(Entity entity){
+        DBEngine.getInstance().createTableIfNotExist(entity);
     }
     public static Entity fromClass(Class clazz) {
         Entity entity = entities.get(clazz.getName());

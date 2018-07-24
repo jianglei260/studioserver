@@ -14,9 +14,11 @@ import com.sharevar.appstudio.persitent.logic.Op;
 import com.sharevar.appstudio.persitent.logic.Rule;
 import com.sharevar.appstudio.stand.type.TypeInference;
 
+import java.lang.reflect.Method;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -117,21 +119,33 @@ public class DBEngine {
                 }
                 if (allBuilder.length() > 0) {
                     String alterSql = allBuilder.toString();
+                    Statement alterStatement=con.createStatement();
+                    String[] sqls=alterSql.split(";");
+                    for (String s : sqls) {
+                        alterStatement.addBatch(s);
+                    }
                     System.out.println(alterSql);
-                    con.createStatement().execute(alterSql);
+                    alterStatement.executeBatch();
+                    return true;
+                } else {
+                    return false;
                 }
             } else {
                 StringBuilder builder = new StringBuilder();
-                builder.append("CREATE TABLE IF NOT EXISTS " + "'" + entity.getSimpleName() + "'(");
+                builder.append("CREATE TABLE IF NOT EXISTS " + "`" + entity.getSimpleName() + "`(");
                 for (Field insertField : insertFields) {
-                    builder.append("'" + insertField.getName() + "' " + EntityRepository.getDBType(insertField.getTypeName()) + ",");
+                    builder.append("`" + insertField.getName() + "` " + EntityRepository.getDBType(insertField.getTypeName()) + ",");
                 }
-                builder.append("PRIMARY KEY ( `objectId` )");
+                builder.append("PRIMARY KEY ( `objectId` ))ENGINE=InnoDB DEFAULT CHARSET=utf8;");
+                String createSql = builder.toString();
+                System.out.println(createSql);
+                con.createStatement().execute(createSql);
+                return true;
             }
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
         }
-
     }
 
     private String buildQuerySQL(Entity entity, List<Rule> rules, boolean fetch) {
@@ -272,18 +286,22 @@ public class DBEngine {
                 JsonObject inflateJsonObject = jsonObject.get(field.getName()).getAsJsonObject();
                 value = executeInsertOrUpdate(EntityRepository.getInstance().find(field.getName()), inflateJsonObject, inflate);
             }
+            boolean isString = value instanceof String;
             if (exist) {
                 builder.append(fieldName);
                 builder.append("=");
+                if (isString) {
+                    builder.append("'");
+                }
                 builder.append(value);
+                if (isString) {
+                    builder.append("'");
+                }
+                builder.append(",");
             } else {
                 builder.append(",");
                 builder.append(fieldName);
-                boolean isString = false;
                 valuesBuilder.append(",");
-                if (value instanceof String) {
-                    isString = true;
-                }
                 if (isString) {
                     valuesBuilder.append("'");
                 }
@@ -295,10 +313,14 @@ public class DBEngine {
             }
         }
         if (exist) {
-            builder.append("where object = '" + objectId + "'");
+            builder.deleteCharAt(builder.length()-1);
+            builder.append(" ");
+            builder.append("where objectId = '" + objectId + "'");
+        }else {
+            valuesBuilder.append(")");
+            builder.append(")");
         }
-        valuesBuilder.append(")");
-        builder.append(")");
+
         builder.append(valuesBuilder);
         String sql = builder.toString();
         System.out.println(sql);
@@ -323,17 +345,47 @@ public class DBEngine {
         return null;
     }
 
+    public void setObjectId(Object object,String id){
+        try {
+            Method method=object.getClass().getMethod("setObjectId",String.class);
+            if (method!=null){
+                method.invoke(object,id);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+    public void setCreatedAt(Object object,Date createAt){
+        try {
+            Method method=object.getClass().getMethod("setCreatedAt",Date.class);
+            if (method!=null){
+                method.invoke(object,createAt);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+    public void setUpdatedAt(Object object,Date date){
+        try {
+            Method method=object.getClass().getMethod("setUpdatedAt",Date.class);
+            if (method!=null){
+                method.invoke(object,date);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
     private BaseObject createObject(Entity entity, ResultSet resultSet, boolean fetch) {
         Class clazz = EntityRepository.getInstance().findClassForEntity(entity);
         try {
             BaseObject object = (BaseObject) clazz.newInstance();
             for (Field field : entity.getFields()) {
                 if (field.getName().equals("objectId")) {
-                    object.setObjectId(resultSet.getString("objectId"));
+                    setObjectId(object,resultSet.getString("objectId"));
                 } else if (field.getName().equals("createdAt")) {
-                    object.setCreatedAt(resultSet.getDate("createdAt"));
-                } else if (field.getName().equals("createdAt")) {
-                    object.setCreatedAt(resultSet.getDate("createdAt"));
+                    setCreatedAt(object,resultSet.getDate("createdAt"));
+                } else if (field.getName().equals("updatedAt")) {
+                    setUpdatedAt(object,resultSet.getDate("updatedAt"));
                 } else {
                     if (field.isCollection()) {
                         Type parameterizedType = field.getType().getParameterizedType();
@@ -360,7 +412,7 @@ public class DBEngine {
                                 List list = new ArrayList();
                                 for (String objectId : objectIds) {
                                     BaseObject baseObject = new BaseObject();
-                                    baseObject.setObjectId(objectId);
+                                    setObjectId(baseObject,objectId);
                                     list.add(baseObject);
                                 }
                                 inflateField(object, field.getName(), list);
