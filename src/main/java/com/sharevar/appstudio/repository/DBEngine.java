@@ -49,7 +49,7 @@ public class DBEngine {
 
     public boolean delete(Entity entity, List<Rule> rules, boolean fetch) {
         String sql = buildQuerySQL(entity, rules, fetch);
-      return   executeDelete(entity, sql, fetch);
+        return executeDelete(entity, sql, fetch);
     }
 
     public <T> List<T> query(Entity entity, List<Rule> rules, boolean fetch) {
@@ -70,8 +70,68 @@ public class DBEngine {
         return ids.toString();
     }
 
-    public boolean createTableIfNotExist(Entity entity){
+    public boolean createTableIfNotExist(Entity entity) {
         //todo
+        List<Field> insertFields = new ArrayList<>(entity.getFields());
+        List<Field> deleteFields = new ArrayList<>();
+        List<Field> modifyFields = new ArrayList<>();
+        String sql = "SELECT column_name,data_type FROM information_schema.columns WHERE table_schema = 'studio'  AND table_name='" + entity.getSimpleName() + "';";
+        try {
+            Statement statement = con.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql);
+            if (resultSet.next()) {
+                do {
+                    String columnName = resultSet.getString("column_name");
+                    String dataType = resultSet.getString("data_type");
+                    Field field = CollectionOP.findByAttr(entity.getFields(), "name", columnName);
+                    if (field != null) {
+                        if (!dataType.equals(EntityRepository.getDBType(field.getTypeName()))) {
+                            modifyFields.add(field);
+                        }
+                        insertFields.remove(field);
+                    } else {
+                        deleteFields.add(field);
+                    }
+                } while (resultSet.next());
+                StringBuilder allBuilder = new StringBuilder();
+                if (modifyFields.size() > 0) {
+                    StringBuilder builder = new StringBuilder();
+                    for (Field modifyField : modifyFields) {
+                        builder.append("ALTER TABLE " + entity.getSimpleName() + " CHANGE " + modifyField.getName() + " " + modifyField.getName() + " " + EntityRepository.getDBType(modifyField.getTypeName()) + ";");
+                    }
+                    allBuilder.append(builder);
+                }
+                if (deleteFields.size() > 0) {
+                    StringBuilder builder = new StringBuilder();
+                    for (Field deleteField : deleteFields) {
+                        builder.append("ALTER TABLE " + entity.getSimpleName() + " DROP " + deleteField.getName() + ";");
+                    }
+                    allBuilder.append(builder);
+                }
+                if (insertFields.size() > 0) {
+                    StringBuilder builder = new StringBuilder();
+                    for (Field insertField : insertFields) {
+                        builder.append("ALTER TABLE " + entity.getSimpleName() + " ADD " + insertField.getName() + " " + EntityRepository.getDBType(insertField.getTypeName()) + ";");
+                    }
+                    allBuilder.append(builder);
+                }
+                if (allBuilder.length() > 0) {
+                    String alterSql = allBuilder.toString();
+                    System.out.println(alterSql);
+                    con.createStatement().execute(alterSql);
+                }
+            } else {
+                StringBuilder builder = new StringBuilder();
+                builder.append("CREATE TABLE IF NOT EXISTS " + "'" + entity.getSimpleName() + "'(");
+                for (Field insertField : insertFields) {
+                    builder.append("'" + insertField.getName() + "' " + EntityRepository.getDBType(insertField.getTypeName()) + ",");
+                }
+                builder.append("PRIMARY KEY ( `objectId` )");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 
     private String buildQuerySQL(Entity entity, List<Rule> rules, boolean fetch) {
@@ -79,14 +139,14 @@ public class DBEngine {
         for (Rule rule : rules) {
             switch (rule.getOp()) {
                 case QUERY:
-                    if (builder.length()>0){
+                    if (builder.length() > 0) {
                         builder.append(";");
                     }
                     builder.append("select * from ");
                     builder.append(entity.getSimpleName());
                     break;
                 case DELETE:
-                    if (builder.length()>0){
+                    if (builder.length() > 0) {
                         builder.append(";");
                     }
                     builder.append("delete from ");
@@ -125,7 +185,7 @@ public class DBEngine {
     //todo 删除相关数据
     private boolean executeDelete(Entity entity, String sql, boolean fetch) {
         try {
-            Statement statement=  con.createStatement();
+            Statement statement = con.createStatement();
             statement.execute(sql);
             return true;
         } catch (SQLException e) {
@@ -254,7 +314,7 @@ public class DBEngine {
     private Object getJsonPrimitiveAttr(String name, JsonObject jsonObject) {
         JsonElement element = jsonObject.get(name);
         try {
-            java.lang.reflect.Field field=element.getClass().getDeclaredField("value");
+            java.lang.reflect.Field field = element.getClass().getDeclaredField("value");
             field.setAccessible(true);
             return field.get(element);
         } catch (Exception e) {

@@ -21,6 +21,7 @@ public class EntityRepository {
     private static EntityRepository instance;
     private static Map<String, Entity> entities = new HashMap<>();
     private static Map<String, Class> builtinType = new HashMap<>();
+    public static Map<String, String> dbTypeMap = new HashMap<>();
 
     static {
         /**********************java builtin type*************************/
@@ -66,14 +67,34 @@ public class EntityRepository {
         fromClass(Type.class);
         fromClass(Variable.class);
         fromClass(Rule.class);
-
+        /*************************project db type map***********************/
+        dbTypeMap.put(String.class.getName(),"VARCHAR");
+        dbTypeMap.put(Integer.class.getName(),"INTEGER");
+        dbTypeMap.put(int.class.getName(),"INTEGER");
+        dbTypeMap.put(long.class.getName(),"BIGINT");
+        dbTypeMap.put(Long.class.getName(),"BIGINT");
+        dbTypeMap.put(float.class.getName(),"FLOAT");
+        dbTypeMap.put(Float.class.getName(),"FLOAT");
+        dbTypeMap.put(double.class.getName(),"DOUBLE");
+        dbTypeMap.put(Double.class.getName(),"DOUBLE");
+        dbTypeMap.put(double.class.getName(),"DOUBLE");
+        dbTypeMap.put(Date.class.getName(),"DATETIME");
+        dbTypeMap.put(java.sql.Date.class.getName(),"DATETIME");
+        dbTypeMap.put(List.class.getName(),"VARCHAR");
     }
 
+    public static String getDBType(String type){
+        String dbType=dbTypeMap.get(type);
+        if (dbType==null){
+            dbType="VARCHAR";
+        }
+        return dbType;
+    }
     public static Entity fromClass(Class clazz) {
         Entity entity = entities.get(clazz.getName());
-        if (entity!=null)
+        if (entity != null)
             return entity;
-        entity=new Entity();
+        entity = new Entity();
         entity.setName(clazz.getName());
         for (Field field : clazz.getDeclaredFields()) {
             field.setAccessible(true);
@@ -125,7 +146,7 @@ public class EntityRepository {
 
     public void add(List<Entity> entities) {
         for (Entity entity : entities) {
-            EntityRepository.entities.put(entity.getName(),entity);
+            EntityRepository.entities.put(entity.getName(), entity);
         }
     }
 }
