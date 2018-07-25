@@ -77,17 +77,17 @@ public class DBEngine {
         List<Field> insertFields = new ArrayList<>(entity.getFields());
         List<Field> deleteFields = new ArrayList<>();
         List<Field> modifyFields = new ArrayList<>();
-        String sql = "SELECT column_name,data_type FROM information_schema.columns WHERE table_schema = 'studio'  AND table_name='" + entity.getSimpleName() + "';";
+        String sql = "SELECT column_name,column_type FROM information_schema.columns WHERE table_schema = 'studio'  AND table_name='" + entity.getSimpleName() + "';";
         try {
             Statement statement = con.createStatement();
             ResultSet resultSet = statement.executeQuery(sql);
             if (resultSet.next()) {
                 do {
                     String columnName = resultSet.getString("column_name");
-                    String dataType = resultSet.getString("data_type");
+                    String columnType = resultSet.getString("column_type");
                     Field field = CollectionOP.findByAttr(entity.getFields(), "name", columnName);
                     if (field != null) {
-                        if (!dataType.equals(EntityRepository.getDBType(field.getTypeName()))) {
+                        if (!columnType.equalsIgnoreCase(EntityRepository.getDBType(field.getTypeName()))) {
                             modifyFields.add(field);
                         }
                         insertFields.remove(field);
@@ -178,7 +178,13 @@ public class DBEngine {
                 case IN:
                     builder.append(rule.getColum());
                     builder.append(rule.getOp().value);
+                    if (rule.getValue() instanceof String) {
+                        builder.append("'");
+                    }
                     builder.append(rule.getValue());
+                    if (rule.getValue() instanceof String) {
+                        builder.append("'");
+                    }
                     builder.append(" ");
                     break;
                 case AND:
@@ -367,7 +373,7 @@ public class DBEngine {
     }
     public void setUpdatedAt(Object object,Date date){
         try {
-            Method method=object.getClass().getMethod("setUpdatedAt",Date.class);
+            Method method=object.getClass().getMethod("setUpdateAt",Date.class);
             if (method!=null){
                 method.invoke(object,date);
             }
@@ -384,8 +390,8 @@ public class DBEngine {
                     setObjectId(object,resultSet.getString("objectId"));
                 } else if (field.getName().equals("createdAt")) {
                     setCreatedAt(object,resultSet.getDate("createdAt"));
-                } else if (field.getName().equals("updatedAt")) {
-                    setUpdatedAt(object,resultSet.getDate("updatedAt"));
+                } else if (field.getName().equals("updateAt")) {
+                    setUpdatedAt(object,resultSet.getDate("updateAt"));
                 } else {
                     if (field.isCollection()) {
                         Type parameterizedType = field.getType().getParameterizedType();
@@ -432,6 +438,7 @@ public class DBEngine {
                     }
                 }
             }
+            return object;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -448,7 +455,7 @@ public class DBEngine {
 
     private void setField(Object o, String fieldName, Object value) {
         try {
-            java.lang.reflect.Field field = o.getClass().getField(fieldName);
+            java.lang.reflect.Field field = o.getClass().getDeclaredField(fieldName);
             field.setAccessible(true);
             field.set(o, value);
         } catch (Exception e) {

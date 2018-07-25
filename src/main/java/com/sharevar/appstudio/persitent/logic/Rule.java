@@ -14,7 +14,12 @@ public class Rule extends BaseObject {
     }
     public static Rule query(){
         Rule rule=new Rule();
-        rule.setOp(Op.WHERE);
+        rule.setOp(Op.QUERY);
+        return rule;
+    }
+    public static Rule equal(){
+        Rule rule=new Rule();
+        rule.setOp(Op.EQUALTO);
         return rule;
     }
     public Op getOp() {

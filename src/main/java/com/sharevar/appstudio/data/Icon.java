@@ -2,7 +2,7 @@ package com.sharevar.appstudio.data;
 
 import java.util.Date;
 
-public class Icon {
+public class Icon extends BaseObject{
     public String objectId="";
     public Date createdAt=new Date();
     public Date updateAt=new Date();
