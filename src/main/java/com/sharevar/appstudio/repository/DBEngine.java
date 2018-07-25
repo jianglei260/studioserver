@@ -59,7 +59,7 @@ public class DBEngine {
         return executeQuery(entity, sql, fetch);
     }
 
-    public String insertOrUpdate(Entity entity, JsonObject jsonObject, boolean inflate) {
+    public String insertOrUpdate(Entity entity, JsonElement jsonObject, boolean inflate) {
         StringBuilder ids = new StringBuilder();
         if (jsonObject.isJsonArray()) {
             for (JsonElement jsonElement : jsonObject.getAsJsonArray()) {
@@ -119,8 +119,8 @@ public class DBEngine {
                 }
                 if (allBuilder.length() > 0) {
                     String alterSql = allBuilder.toString();
-                    Statement alterStatement=con.createStatement();
-                    String[] sqls=alterSql.split(";");
+                    Statement alterStatement = con.createStatement();
+                    String[] sqls = alterSql.split(";");
                     for (String s : sqls) {
                         alterStatement.addBatch(s);
                     }
@@ -231,35 +231,38 @@ public class DBEngine {
     }
 
     //todo 更新逻辑，按其他条件更新，不仅仅是是ID
-    private String executeInsertOrUpdate(Entity entity, JsonObject jsonObject, boolean inflate) {
+    private String executeInsertOrUpdate(Entity entity, JsonElement jsonElement, boolean inflate) {
         StringBuilder builder = new StringBuilder();
         StringBuilder valuesBuilder = new StringBuilder();
+        JsonObject jsonObject = (JsonObject) jsonElement;
         boolean exist = false;
         String objectId = "";
 
+        objectId = jsonObject.get("objectId").getAsString();
+        if (objectId != null && objectId.length() > 0) {
+            exist = true;
+            builder.append("update ");
+            builder.append(entity.getSimpleName());
+            builder.append(" set ");
+        } else {
+            exist = false;
+            objectId = UUID.randomUUID().toString().replaceAll("-", "");
+            builder.append("insert into ");
+            builder.append(entity.getSimpleName());
+            builder.append(" (objectId");
+            valuesBuilder.append("values(");
+            valuesBuilder.append("'");
+            valuesBuilder.append(objectId);
+            valuesBuilder.append("'");
+        }
         for (Field field : entity.getFields()) {
             String fieldName = field.getName();
             Object value = null;
             if (field.getName().equals("objectId")) {
-                objectId = jsonObject.get("objectId").getAsString();
-                if (objectId != null && objectId.length() > 0) {
-                    exist = true;
-                    builder.append("update ");
-                    builder.append(entity.getSimpleName());
-                    builder.append(" set ");
-                } else {
-                    exist = false;
-                    objectId = UUID.randomUUID().toString().replaceAll("-", "");
-                    builder.append("insert into ");
-                    builder.append(entity.getSimpleName());
-                    builder.append(" (objectId");
-                    valuesBuilder.append("values(");
-                    valuesBuilder.append("'");
-                    valuesBuilder.append(objectId);
-                    valuesBuilder.append("'");
-                }
                 continue;
             }
+            if (!jsonObject.has(fieldName))
+                continue;
             if (EntityRepository.getInstance().isJavaBuiltinType(field.getType())) {
                 value = getJsonPrimitiveAttr(field.getName(), jsonObject);
             } else if (field.isCollection()) {
@@ -289,8 +292,10 @@ public class DBEngine {
                 }
                 value = values.toString();
             } else {
-                JsonObject inflateJsonObject = jsonObject.get(field.getName()).getAsJsonObject();
-                value = executeInsertOrUpdate(EntityRepository.getInstance().find(field.getName()), inflateJsonObject, inflate);
+                if (jsonObject.has(fieldName)){
+                    JsonObject inflateJsonObject = jsonObject.get(fieldName).getAsJsonObject();
+                    value = executeInsertOrUpdate(EntityRepository.getInstance().find(field.getTypeName()), inflateJsonObject, inflate);
+                }
             }
             boolean isString = value instanceof String;
             if (exist) {
@@ -319,10 +324,10 @@ public class DBEngine {
             }
         }
         if (exist) {
-            builder.deleteCharAt(builder.length()-1);
+            builder.deleteCharAt(builder.length() - 1);
             builder.append(" ");
             builder.append("where objectId = '" + objectId + "'");
-        }else {
+        } else {
             valuesBuilder.append(")");
             builder.append(")");
         }
@@ -351,47 +356,50 @@ public class DBEngine {
         return null;
     }
 
-    public void setObjectId(Object object,String id){
+    public void setObjectId(Object object, String id) {
         try {
-            Method method=object.getClass().getMethod("setObjectId",String.class);
-            if (method!=null){
-                method.invoke(object,id);
+            Method method = object.getClass().getMethod("setObjectId", String.class);
+            if (method != null) {
+                method.invoke(object, id);
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    public void setCreatedAt(Object object,Date createAt){
+
+    public void setCreatedAt(Object object, Date createAt) {
         try {
-            Method method=object.getClass().getMethod("setCreatedAt",Date.class);
-            if (method!=null){
-                method.invoke(object,createAt);
+            Method method = object.getClass().getMethod("setCreatedAt", Date.class);
+            if (method != null) {
+                method.invoke(object, createAt);
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    public void setUpdatedAt(Object object,Date date){
+
+    public void setUpdatedAt(Object object, Date date) {
         try {
-            Method method=object.getClass().getMethod("setUpdateAt",Date.class);
-            if (method!=null){
-                method.invoke(object,date);
+            Method method = object.getClass().getMethod("setUpdateAt", Date.class);
+            if (method != null) {
+                method.invoke(object, date);
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
+
     private BaseObject createObject(Entity entity, ResultSet resultSet, boolean fetch) {
         Class clazz = EntityRepository.getInstance().findClassForEntity(entity);
         try {
             BaseObject object = (BaseObject) clazz.newInstance();
             for (Field field : entity.getFields()) {
                 if (field.getName().equals("objectId")) {
-                    setObjectId(object,resultSet.getString("objectId"));
+                    setObjectId(object, resultSet.getString("objectId"));
                 } else if (field.getName().equals("createdAt")) {
-                    setCreatedAt(object,resultSet.getDate("createdAt"));
+                    setCreatedAt(object, resultSet.getDate("createdAt"));
                 } else if (field.getName().equals("updateAt")) {
-                    setUpdatedAt(object,resultSet.getDate("updateAt"));
+                    setUpdatedAt(object, resultSet.getDate("updateAt"));
                 } else {
                     if (field.isCollection()) {
                         Type parameterizedType = field.getType().getParameterizedType();
@@ -418,7 +426,7 @@ public class DBEngine {
                                 List list = new ArrayList();
                                 for (String objectId : objectIds) {
                                     BaseObject baseObject = new BaseObject();
-                                    setObjectId(baseObject,objectId);
+                                    setObjectId(baseObject, objectId);
                                     list.add(baseObject);
                                 }
                                 inflateField(object, field.getName(), list);

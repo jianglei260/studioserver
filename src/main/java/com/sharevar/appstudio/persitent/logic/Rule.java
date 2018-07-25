@@ -17,6 +17,11 @@ public class Rule extends BaseObject {
         rule.setOp(Op.QUERY);
         return rule;
     }
+    public static Rule delete(){
+        Rule rule=new Rule();
+        rule.setOp(Op.DELETE);
+        return rule;
+    }
     public static Rule equal(){
         Rule rule=new Rule();
         rule.setOp(Op.EQUALTO);

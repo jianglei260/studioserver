@@ -81,7 +81,7 @@ public class EntityRepository {
         dbTypeMap.put(double.class.getName(),"DOUBLE");
         dbTypeMap.put(Date.class.getName(),"DATETIME");
         dbTypeMap.put(java.sql.Date.class.getName(),"DATETIME");
-        dbTypeMap.put(List.class.getName(),VARCHAR);
+        dbTypeMap.put(List.class.getName(),"TEXT");
     }
 
     public static String getDBType(String type){
@@ -92,8 +92,22 @@ public class EntityRepository {
         return dbType;
     }
 
+    public static List<Entity> getEntities() {
+        return new ArrayList<>(entities.values());
+    }
+
     public void syncEntity(Entity entity){
         DBEngine.getInstance().createTableIfNotExist(entity);
+    }
+
+    public void syncEntities(){
+        for (Entity entity : entities.values()) {
+            syncEntity(entity);
+        }
+    }
+
+    public Entity from(Class clazz){
+        return entities.get(clazz.getName());
     }
     public static Entity fromClass(Class clazz) {
         Entity entity = entities.get(clazz.getName());
@@ -105,8 +119,9 @@ public class EntityRepository {
             field.setAccessible(true);
             com.sharevar.appstudio.object.Field entityField = new com.sharevar.appstudio.object.Field();
             Type type = Type.of(field.getType());
-            if (field.getType().getGenericSuperclass() instanceof ParameterizedType) {
-                String parameterizeTypeName = ((ParameterizedType) field.getType().getGenericSuperclass()).getActualTypeArguments()[0].getTypeName();
+            java.lang.reflect.Type genericType=field.getGenericType();
+            if (genericType !=null&&genericType instanceof ParameterizedType) {
+                String parameterizeTypeName = ((ParameterizedType) genericType).getActualTypeArguments()[0].getTypeName();
                 type.setParameterizedType(Type.forName(parameterizeTypeName));
             }
             entityField.setType(type);
