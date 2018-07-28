@@ -7,6 +7,7 @@ import com.sharevar.appstudio.data.Response;
 import com.sharevar.appstudio.object.function.Function;
 import com.sharevar.appstudio.persitent.logic.Rule;
 
+import javax.swing.text.StyledEditorKit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -54,6 +55,10 @@ public class DataRepository<T> {
         return results;
     }
 
+    List<T> findByRules(List<Rule> rules,boolean fetch){
+        List<T> result = dbEngine.query(entity, rules, fetch);
+        return result;
+    }
     Long count() {
         return dbEngine.count(entity, Arrays.asList(Rule.query(), Rule.count()));
     }
@@ -62,7 +67,10 @@ public class DataRepository<T> {
        return dbEngine.delete(entity, Arrays.asList(Rule.delete(), Rule.id(objectId)),fetch);
     }
 
-
+    Boolean deleteByRules(List<Rule> rules, boolean fetch){
+        Boolean result = dbEngine.delete(entity, rules, fetch);
+        return result;
+    }
     List<Boolean> deleteAll(List<String> ids,boolean fetch){
         List<Boolean> results = new ArrayList<>();
         for (String id : ids) {
