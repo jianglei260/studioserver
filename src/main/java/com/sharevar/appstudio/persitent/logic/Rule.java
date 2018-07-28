@@ -17,9 +17,21 @@ public class Rule extends BaseObject {
         rule.setOp(Op.QUERY);
         return rule;
     }
+    public static Rule id(String id){
+        Rule rule=new Rule();
+        rule.setOp(Op.EQUALTO);
+        rule.setColum("objectId");
+        rule.setValue(id);
+        return rule;
+    }
     public static Rule delete(){
         Rule rule=new Rule();
         rule.setOp(Op.DELETE);
+        return rule;
+    }
+    public static Rule count(){
+        Rule rule=new Rule();
+        rule.setOp(Op.COUNT);
         return rule;
     }
     public static Rule equal(){

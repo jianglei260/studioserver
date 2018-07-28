@@ -4,6 +4,7 @@ import com.sharevar.appstudio.data.Attr;
 
 public enum Op {
     QUERY("QUERY"), INSERT("INSERT"), UPDATE("UPDATE"), DELETE("DELETE"),
+    COUNT("COUNT"),
     WHERE("WHERE"), AND("AND"), OR("OR"),
     EQUALTO("="), NOT_EQUALTO("><"), GREATER(">"), LESS("<"), GREATER_EQUAL(">="), LESS_EQUAL("<"),IN("IN"),
     LIMIT("LIMIT"), SKIP("OFFSET"),

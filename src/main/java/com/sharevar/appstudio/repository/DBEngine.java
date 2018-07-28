@@ -169,6 +169,10 @@ public class DBEngine {
                 case WHERE:
                     builder.append(" where ");
                     break;
+                case COUNT:
+                    int index=builder.indexOf("*");
+                    builder.replace(index,index+1,"count(objectID) ");
+                    break;
                 case EQUALTO:
                 case GREATER:
                 case NOT_EQUALTO:
@@ -212,6 +216,19 @@ public class DBEngine {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public Long count(Entity entity,List<Rule> rules){
+        String sql=buildQuerySQL(entity,rules,false);
+        Statement statement = null;
+        try {
+            statement = con.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql);
+            return resultSet.getLong(0);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0l;
     }
 
     private List executeQuery(Entity entity, String sql, boolean fetch) {

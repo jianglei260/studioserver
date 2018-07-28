@@ -9,10 +9,19 @@ public abstract class Function extends BaseObject {
     protected List<Parameter> parameters;
     protected ReturnType returnType;
     protected String name;
+    private String path;
 
     public String objectId="";
     public Date createdAt=new Date();
     public Date updateAt=new Date();
+
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
+    }
 
     public String getObjectId() {
         return objectId;
