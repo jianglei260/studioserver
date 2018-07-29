@@ -115,6 +115,7 @@ public class EntityRepository {
             return entity;
         entity = new Entity();
         entity.setName(clazz.getName());
+        entity.setFields(new ArrayList<>());
         for (Field field : clazz.getDeclaredFields()) {
             field.setAccessible(true);
             com.sharevar.appstudio.object.Field entityField = new com.sharevar.appstudio.object.Field();

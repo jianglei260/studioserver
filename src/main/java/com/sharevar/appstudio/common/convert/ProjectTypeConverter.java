@@ -14,7 +14,7 @@ public class ProjectTypeConverter {
             for (int i = 0; i < parameters.length; i++) {
                 parameters[i]=function.getParameters().get(i).getType().classType();
             }
-            Method method=clazz.getMethod(function.getName(),parameters);
+            Method method=clazz.getDeclaredMethod(function.getName(),parameters);
             return method;
         } catch (NoSuchMethodException e) {
             e.printStackTrace();

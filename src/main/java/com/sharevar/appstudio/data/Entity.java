@@ -1,5 +1,7 @@
 package com.sharevar.appstudio.data;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.sharevar.appstudio.object.Field;
 
 import java.util.ArrayList;
@@ -8,10 +10,14 @@ import java.util.List;
 
 public class Entity {
     private String name;
-    private List<Field> fields=new ArrayList<>();
+
+    private List<Field> fields;
+
     public String objectId="";
-    public Date createdAt=new Date();
-    public Date updateAt=new Date();
+
+    public Date createdAt;
+
+    public Date updateAt;
 
     public String getObjectId() {
         return objectId;
@@ -37,10 +43,6 @@ public class Entity {
         this.updateAt = updateAt;
     }
 
-    public String getTypeName() {
-        return getClass().getSimpleName();
-    }
-
     public String getName() {
         return name;
     }
@@ -48,7 +50,7 @@ public class Entity {
     public void setName(String name) {
         this.name = name;
     }
-
+    @JsonIgnore
     public String getSimpleName(){
        String[] names=name.split("[.]");
         return names[names.length-1];

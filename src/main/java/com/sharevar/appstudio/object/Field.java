@@ -1,15 +1,23 @@
 package com.sharevar.appstudio.object;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.sharevar.appstudio.data.BaseObject;
 
 import java.util.Date;
 
 public class Field extends BaseObject {
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private Type type;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private String name;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private Object defaultValue;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public String objectId="";
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public Date createdAt=new Date();
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public Date updateAt=new Date();
 
     public String getObjectId() {
@@ -35,8 +43,8 @@ public class Field extends BaseObject {
     public void setUpdateAt(Date updateAt) {
         this.updateAt = updateAt;
     }
-
-    public String getTypeName() {
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public String typeName() {
         return type.getName();
     }
 
@@ -64,6 +72,7 @@ public class Field extends BaseObject {
         this.defaultValue = defaultValue;
     }
 
+    @JsonIgnore
     public boolean isCollection(){
         return type.isCollection();
     }

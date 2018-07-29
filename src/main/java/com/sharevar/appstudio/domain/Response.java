@@ -1,8 +1,8 @@
 package com.sharevar.appstudio.domain;
 
 public class Response<T> {
-    String code;
-    String msg;
+    String code="200";
+    String msg="ok";
     T data;
 
     public Response(T data) {

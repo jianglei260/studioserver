@@ -1,13 +1,13 @@
 package com.sharevar.appstudio.object.function;
 
 import com.sharevar.appstudio.data.BaseObject;
-
+import com.sharevar.appstudio.object.Type;
 import java.util.Date;
 import java.util.List;
 
-public abstract class Function extends BaseObject {
+public  class Function extends BaseObject {
     protected List<Parameter> parameters;
-    protected ReturnType returnType;
+    protected Type returnType;
     protected String name;
     private String path;
 
@@ -51,7 +51,9 @@ public abstract class Function extends BaseObject {
         return getClass().getSimpleName();
     }
 
-    public abstract Object invoke();
+    public  Object invoke(){
+        return null;
+    }
 
     public List<Parameter> getParameters() {
         return parameters;
@@ -61,11 +63,11 @@ public abstract class Function extends BaseObject {
         this.parameters = parameters;
     }
 
-    public ReturnType getReturnType() {
+    public Type getReturnType() {
         return returnType;
     }
 
-    public void setReturnType(ReturnType returnType) {
+    public void setReturnType(Type returnType) {
         this.returnType = returnType;
     }
 

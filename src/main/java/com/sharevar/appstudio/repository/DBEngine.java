@@ -87,7 +87,7 @@ public class DBEngine {
                     String columnType = resultSet.getString("column_type");
                     Field field = CollectionOP.findByAttr(entity.getFields(), "name", columnName);
                     if (field != null) {
-                        if (!columnType.equalsIgnoreCase(EntityRepository.getDBType(field.getTypeName()))) {
+                        if (!columnType.equalsIgnoreCase(EntityRepository.getDBType(field.typeName()))) {
                             modifyFields.add(field);
                         }
                         insertFields.remove(field);
@@ -99,7 +99,7 @@ public class DBEngine {
                 if (modifyFields.size() > 0) {
                     StringBuilder builder = new StringBuilder();
                     for (Field modifyField : modifyFields) {
-                        builder.append("ALTER TABLE " + entity.getSimpleName() + " CHANGE " + modifyField.getName() + " " + modifyField.getName() + " " + EntityRepository.getDBType(modifyField.getTypeName()) + ";");
+                        builder.append("ALTER TABLE " + entity.getSimpleName() + " CHANGE " + modifyField.getName() + " " + modifyField.getName() + " " + EntityRepository.getDBType(modifyField.typeName()) + ";");
                     }
                     allBuilder.append(builder);
                 }
@@ -113,7 +113,7 @@ public class DBEngine {
                 if (insertFields.size() > 0) {
                     StringBuilder builder = new StringBuilder();
                     for (Field insertField : insertFields) {
-                        builder.append("ALTER TABLE " + entity.getSimpleName() + " ADD " + insertField.getName() + " " + EntityRepository.getDBType(insertField.getTypeName()) + ";");
+                        builder.append("ALTER TABLE " + entity.getSimpleName() + " ADD " + insertField.getName() + " " + EntityRepository.getDBType(insertField.typeName()) + ";");
                     }
                     allBuilder.append(builder);
                 }
@@ -134,7 +134,7 @@ public class DBEngine {
                 StringBuilder builder = new StringBuilder();
                 builder.append("CREATE TABLE IF NOT EXISTS " + "`" + entity.getSimpleName() + "`(");
                 for (Field insertField : insertFields) {
-                    builder.append("`" + insertField.getName() + "` " + EntityRepository.getDBType(insertField.getTypeName()) + ",");
+                    builder.append("`" + insertField.getName() + "` " + EntityRepository.getDBType(insertField.typeName()) + ",");
                 }
                 builder.append("PRIMARY KEY ( `objectId` ))ENGINE=InnoDB DEFAULT CHARSET=utf8;");
                 String createSql = builder.toString();
@@ -233,12 +233,12 @@ public class DBEngine {
 
     private List executeQuery(Entity entity, String sql, boolean fetch) {
         System.out.println(sql);
-        List<BaseObject> results = new ArrayList<>();
+        List<Object> results = new ArrayList<>();
         try {
             Statement statement = con.createStatement();
             ResultSet resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
-                BaseObject object = createObject(entity, resultSet, fetch);
+                Object object = createObject(entity, resultSet, fetch);
                 results.add(object);
             }
         } catch (SQLException e) {
@@ -311,7 +311,7 @@ public class DBEngine {
             } else {
                 if (jsonObject.has(fieldName)){
                     JsonObject inflateJsonObject = jsonObject.get(fieldName).getAsJsonObject();
-                    value = executeInsertOrUpdate(EntityRepository.getInstance().find(field.getTypeName()), inflateJsonObject, inflate);
+                    value = executeInsertOrUpdate(EntityRepository.getInstance().find(field.typeName()), inflateJsonObject, inflate);
                 }
             }
             boolean isString = value instanceof String;
@@ -406,10 +406,10 @@ public class DBEngine {
         }
     }
 
-    private BaseObject createObject(Entity entity, ResultSet resultSet, boolean fetch) {
+    private Object createObject(Entity entity, ResultSet resultSet, boolean fetch) {
         Class clazz = EntityRepository.getInstance().findClassForEntity(entity);
         try {
-            BaseObject object = (BaseObject) clazz.newInstance();
+            Object object =  clazz.newInstance();
             for (Field field : entity.getFields()) {
                 if (field.getName().equals("objectId")) {
                     setObjectId(object, resultSet.getString("objectId"));
@@ -429,8 +429,8 @@ public class DBEngine {
                             }
                             inflateField(object, field.getName(), list);
                         } else {
+                            Entity fieldEntity = EntityRepository.getInstance().find(parameterizedType.getName());
                             if (fetch) {
-                                Entity fieldEntity = EntityRepository.getInstance().find(parameterizedType.getName());
                                 Rule inRule = new Rule();
                                 inRule.setOp(Op.IN);
                                 inRule.setValue("(" + ids + ")");
@@ -442,7 +442,7 @@ public class DBEngine {
                                 String objectIds[] = ids.split(",");
                                 List list = new ArrayList();
                                 for (String objectId : objectIds) {
-                                    BaseObject baseObject = new BaseObject();
+                                    Object baseObject = EntityRepository.getInstance().findClassForEntity(fieldEntity).newInstance();
                                     setObjectId(baseObject, objectId);
                                     list.add(baseObject);
                                 }
@@ -470,7 +470,7 @@ public class DBEngine {
         return null;
     }
 
-    private void inflateField(BaseObject baseObject, String filedName, Object value) {
+    private void inflateField(Object baseObject, String filedName, Object value) {
         if (baseObject instanceof DynamicObject) {
             ((DynamicObject) baseObject).getAttrs().put(filedName, value);
         } else {
